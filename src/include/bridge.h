@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#define AB_VERSION "1.0.0"
+#define AB_VERSION "1.0.1"
 #define AB_PROTO 1
 
 /* The host directory is 0700 root, so path lookup already stops every other
