@@ -106,13 +106,24 @@ directory, and pointing the client at it:
 make aarch64                                   # match `adb shell uname -m`
 adb push output/android-bridge /data/local/tmp/ab-test
 adb shell su <<'EOF'
-/data/local/tmp/ab-test --daemon --dir /data/local/tmp/ab-run
-/data/local/tmp/ab-test -s /data/local/tmp/ab-run/bridge.sock id
+/data/local/tmp/ab-test --daemon --dir /data/local/tmp/ab-run >/data/local/tmp/ab-run.log 2>&1
+/data/local/tmp/ab-test -s /data/local/tmp/ab-run/bridge.sock id </dev/null
+cat /data/local/tmp/ab-run.log
 EOF
 ```
 
 Pipe a script into `adb shell su` as above, `adb shell su -c 'a; b'` runs only `a` as
-root.
+root. The daemon keeps its stdout and stderr, so without the redirect adb never sees
+the end of the output and hangs. A client without `</dev/null` reads the rest of the
+script as its stdin. A log that says "already running" means an earlier test daemon
+answered, not the build you pushed. Leave the phone as you found it:
+
+```
+adb shell su <<'EOF'
+pkill -f /data/local/tmp/ab-test
+rm -rf /data/local/tmp/ab-test /data/local/tmp/ab-run /data/local/tmp/ab-run.log
+EOF
+```
 
 ## Documentation
 
