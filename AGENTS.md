@@ -53,7 +53,7 @@ at a trust boundary, or anything the requester asked for by name.
 make native            # host arch into output/android-bridge, the real build command
 make aarch64           # cross builds: aarch64, x86_64, armhf, x86, riscv64
 make all-build         # every arch
-make module            # every arch, then android-bridge-module-v<version>.zip
+make module            # every arch, then output/android-bridge-module-v<version>.zip
 make debug-hardened    # ASan, UBSan, LSan, on a glibc host
 make test              # tests/smoke.sh against output/android-bridge, as root
 make bump NEW=x.y.z    # set AB_VERSION in bridge.h

@@ -55,7 +55,8 @@ directory instead of the file avoids that.
 2. Flash `android-bridge-module-v*.zip` in the root manager and reboot.
 3. Put the client in the container. It is the same static binary as the
    daemon, `/data/adb/modules/android-bridge/bin/android-bridge` on the phone, or
-   the matching arch from `make all-tarball`.
+   `bin/arm64/android-bridge` inside the zip for an aarch64 phone. The zip uses
+   the root manager's arch names: `arm64`, `arm`, `x64`, `x86` and `riscv64`.
 
 ## Use
 
@@ -93,8 +94,7 @@ make                 # prints the help, builds nothing
 make native          # this machine's arch, into output/android-bridge
 make aarch64         # also x86_64, armhf, x86, riscv64
 make all-build       # every arch
-make all-tarball     # every arch, packed per arch into one tarball
-make module          # every arch, then the module zip
+make module          # every arch, then output/android-bridge-module-v<version>.zip
 make debug-hardened  # ASan, UBSan, LSan, for a glibc host
 make test            # smoke test against output/android-bridge
 make bump NEW=x.y.z  # set AB_VERSION in bridge.h

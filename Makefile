@@ -11,6 +11,7 @@ CC ?= cc
 
 # AB_VERSION in bridge.h is the one place the version lives; `make bump` rewrites it
 VERSION := $(shell grep "define AB_VERSION" $(SRC_DIR)/include/bridge.h | awk '{print $$3}' | tr -d '"')
+VERSION_CODE = $(shell echo $(VERSION) | awk -F. '{print $$1*10000+$$2*100+$$3}')
 
 NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
 
@@ -70,7 +71,7 @@ find-cc = $(shell \
 		echo "$(1)-gcc"; \
 	fi)
 
-.PHONY: all help clean native $(ARCHES) all-build all-tarball module debug-hardened format bump test
+.PHONY: all help clean native $(ARCHES) all-build module debug-hardened format bump test
 
 all: help
 
@@ -87,8 +88,7 @@ help:
 	@echo ""
 	@echo "Advanced targets:"
 	@echo "  make all-build   - Build for all supported architectures"
-	@echo "  make all-tarball - Build all and create unified distribution"
-	@echo "  make module      - Build all and create the module zip"
+	@echo "  make module      - Build all into output/$(BINARY_NAME)-module-v$(VERSION).zip"
 	@echo ""
 	@echo "Options:"
 	@echo "  V=1            - Show full compiler commands"
@@ -157,37 +157,21 @@ all-build:
 	done
 	@echo "[+] All architectures built successfully in $(OUT_DIR)/"
 
-all-tarball: all-build
-	@COMMIT_HASH=$$(git rev-parse --short HEAD 2>/dev/null || date +%Y-%m-%d); \
-	TARBALL="$(BINARY_NAME)-v$(VERSION)-$$COMMIT_HASH.tar.gz"; \
-	ROOT_DIR="$(BINARY_NAME)-v$(VERSION)"; \
-	TEMP_DIR="/tmp/android-bridge-tarball-$$$$"; \
-	mkdir -p $$TEMP_DIR/$$ROOT_DIR; \
-	for arch in $(ARCHES); do \
-		mkdir -p $$TEMP_DIR/$$ROOT_DIR/$$arch; \
-		cp $(OUT_DIR)/$(BINARY_NAME)-$$arch $$TEMP_DIR/$$ROOT_DIR/$$arch/$(BINARY_NAME); \
-	done; \
-	echo "[*] Creating unified distribution: $$TARBALL..."; \
-	tar -czf $$TARBALL -C $$TEMP_DIR $$ROOT_DIR; \
-	rm -rf $$TEMP_DIR; \
-	echo "[+] Created: $$TARBALL ($$(du -h $$TARBALL | cut -f1))"
-
-# Every arch goes in under bin/<Magisk $$ARCH>, customize.sh keeps the device's
+# One zip for every device: every arch goes in under bin/<Magisk $$ARCH>, and
+# customize.sh keeps the device's. Staged fresh each time, so nothing stale
+# from an earlier build ends up in it.
 MODULE_ARCHES = aarch64:arm64 armhf:arm x86_64:x64 x86:x86 riscv64:riscv64
+MODULE_ZIP    = $(BINARY_NAME)-module-v$(VERSION).zip
 module: all-build
-	@VERSION_CODE=$$(echo $(VERSION) | awk -F. '{print $$1*10000+$$2*100+$$3}'); \
-	ZIP="$(BINARY_NAME)-module-v$(VERSION).zip"; \
-	TEMP_DIR=$$(mktemp -d); \
-	cp -r module/. $$TEMP_DIR/; \
-	sed "s/@VERSION@/$(VERSION)/; s/@VERSIONCODE@/$$VERSION_CODE/" module/module.prop > $$TEMP_DIR/module.prop; \
-	for pair in $(MODULE_ARCHES); do \
-		mkdir -p $$TEMP_DIR/bin/$${pair#*:}; \
-		cp $(OUT_DIR)/$(BINARY_NAME)-$${pair%%:*} $$TEMP_DIR/bin/$${pair#*:}/$(BINARY_NAME); \
-	done; \
-	echo "[*] Creating module: $$ZIP..."; \
-	rm -f $$ZIP; (cd $$TEMP_DIR && zip -qr9 - .) > $$ZIP; \
-	rm -rf $$TEMP_DIR; \
-	echo "[+] Created: $$ZIP ($$(du -h $$ZIP | cut -f1))"
+	@rm -rf $(OUT_DIR)/module $(OUT_DIR)/$(MODULE_ZIP)
+	@cp -r module $(OUT_DIR)/module
+	@sed "s/@VERSION@/$(VERSION)/; s/@VERSIONCODE@/$(VERSION_CODE)/" module/module.prop > $(OUT_DIR)/module/module.prop
+	@for pair in $(MODULE_ARCHES); do \
+		mkdir -p $(OUT_DIR)/module/bin/$${pair#*:} && \
+		cp $(OUT_DIR)/$(BINARY_NAME)-$${pair%%:*} $(OUT_DIR)/module/bin/$${pair#*:}/$(BINARY_NAME) || exit 1; \
+	done
+	@cd $(OUT_DIR)/module && zip -qr9 ../$(MODULE_ZIP) .
+	@echo "[+] Created: $(OUT_DIR)/$(MODULE_ZIP) ($$(du -h $(OUT_DIR)/$(MODULE_ZIP) | cut -f1))"
 
 bump:
 	@echo "$(NEW)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || { echo "Usage: make bump NEW=x.y.z"; exit 1; }
@@ -200,5 +184,5 @@ format:
 	@echo "[+] Formatted all source files"
 
 clean:
-	@rm -rf $(OUT_DIR) $(BINARY_NAME)-*.tar.gz $(BINARY_NAME)-module-*.zip
+	@rm -rf $(OUT_DIR)
 	@echo "[+] Cleaned build artifacts"
