@@ -8,8 +8,8 @@ anything. `CLAUDE.md` is a symlink to this file.
 android-bridge gives root inside a Droidspaces container a shell on the Android side, the
 same shell `adb shell` gives. On a homelab phone nobody touches, it is how a container
 reboots the phone or runs `pm`, `cmd` and `dumpsys`. It is a separate project from
-Droidspaces. This side creates the socket on the host, Droidspaces bind-mounts it into
-its containers.
+Droidspaces. This side creates the socket on the host, a bind mount the reader adds in
+Droidspaces puts it in a container.
 
 One static musl binary is both halves:
 

@@ -7,16 +7,16 @@ reboots the container.
 
 It is a separate project from Droidspaces and ships as its own root module, for
 KernelSU, Magisk or APatch.
-This side only creates the socket on the host. Droidspaces bind-mounts it into
-its containers.
+This side only creates the socket on the host. Each container gets it through a
+bind mount, see Install.
 
 ## How it works
 
 - A daemon on Android, started from the module's `post-fs-data.sh`, listens on
   `/dev/android-bridge/bridge.sock`. It starts before Droidspaces boots any
   container.
-- Droidspaces bind-mounts that socket into a container at
-  `/run/android-bridge/bridge.sock`, where the client looks by default.
+- A bind mount puts that directory at `/run/android-bridge` in a container, where
+  the client looks by default.
 - Every connection gets `/system/bin/sh` as the shell user, uid 2000, in
   `u:r:shell:s0`, with adbd's groups and adbd's capability bounding set. That
   is what `adb shell` gives you, and it is never root. Run `su` in it for root,
@@ -41,19 +41,16 @@ uid 0 and passes. Every container that gets the socket can open a
 shell on the phone. Do not give it to a container that runs untrusted code as
 root.
 
-The socket keeps its 0600 root mode through a bind mount, so non-root users
-inside a container get `EACCES` on connect the same way. A bind-mounted file
-cannot be deleted from inside the container.
-
-A bind mount pins the socket's inode. If the daemon is restarted, it binds a
-new socket and containers keep the old one until they restart. Mounting the
-directory instead of the file avoids that.
-
 ## Install
 
 1. Build the module with `make module`, or take the zip from a release.
 2. Flash `android-bridge-module-v*.zip` in the root manager and reboot.
-3. Put the client in the container. It is the same static binary as the
+3. In Droidspaces, give each container you want to reach the phone a read-only bind
+   mount from `/dev/android-bridge` to `/run/android-bridge`, then restart it. On the
+   command line that is `--bind=/dev/android-bridge:/run/android-bridge:ro`. The
+   directory is mounted rather than the socket, so a restarted daemon is still
+   reachable.
+4. Put the client in the container. It is the same static binary as the
    daemon, `/data/adb/modules/android-bridge/bin/android-bridge` on the phone, or
    `bin/arm64/android-bridge` inside the zip for an aarch64 phone. The zip uses
    the root manager's arch names: `arm64`, `arm`, `x64`, `x86` and `riscv64`.

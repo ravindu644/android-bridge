@@ -20,8 +20,8 @@
 #define AB_PROTO 1
 
 /* The host directory is 0700 root, so path lookup already stops every other
- * uid with EACCES before the daemon sees a connection. Containers get it
- * through a read-only bind mount at AB_CONTAINER_DIR. */
+ * uid with EACCES before the daemon sees a connection. The README has each
+ * container bind the directory read-only at AB_CONTAINER_DIR. */
 #define AB_HOST_DIR "/dev/android-bridge"
 #define AB_CONTAINER_DIR "/run/android-bridge"
 #define AB_SOCK_NAME "bridge.sock"
