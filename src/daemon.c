@@ -582,6 +582,14 @@ int run_daemon(const char *dir, int foreground) {
     fprintf(stderr, "android-bridge: the daemon must run as root\n");
     return 1;
   }
+  /* Every session execs SHELL_PATH. Without it, on a Linux PC or a recovery
+   * that has not mounted /system, the daemon would accept connections and fail
+   * each one with 127. A recovery that has the shell counts as Android. */
+  if (access(SHELL_PATH, X_OK) < 0) {
+    fprintf(stderr, "android-bridge: no " SHELL_PATH
+                    ", the daemon runs on Android only\n");
+    return 1;
+  }
   signal(SIGPIPE, SIG_IGN);
   if (prepare_dir(dir) < 0) {
     logmsg("cannot prepare %s: %s", dir, strerror(errno));
