@@ -5,7 +5,8 @@ nobody touches, it is how a container reboots the phone, runs `pm`, `cmd` or
 `dumpsys`, or manages Droidspaces itself. `reboot` inside a container only
 reboots the container.
 
-It is a separate project from Droidspaces and ships as its own KernelSU module.
+It is a separate project from Droidspaces and ships as its own root module, for
+KernelSU, Magisk or APatch.
 This side only creates the socket on the host. Droidspaces bind-mounts it into
 its containers.
 
@@ -51,9 +52,9 @@ directory instead of the file avoids that.
 ## Install
 
 1. Build the module with `make module`, or take the zip from a release.
-2. Flash `android-bridge-module-v*.zip` in the KernelSU manager and reboot.
+2. Flash `android-bridge-module-v*.zip` in the root manager and reboot.
 3. Put the client in the container. It is the same static binary as the
-   daemon, `/data/adb/modules/android-bridge/android-bridge` on the phone, or
+   daemon, `/data/adb/modules/android-bridge/bin/android-bridge` on the phone, or
    the matching arch from `make all-tarball`.
 
 ## Use
@@ -93,7 +94,7 @@ make native          # this machine's arch, into output/android-bridge
 make aarch64         # also x86_64, armhf, x86, riscv64
 make all-build       # every arch
 make all-tarball     # every arch, packed per arch into one tarball
-make module          # every arch, then the KernelSU module zip
+make module          # every arch, then the module zip
 make debug-hardened  # ASan, UBSan, LSan, for a glibc host
 make test            # smoke test against output/android-bridge
 make bump NEW=x.y.z  # set AB_VERSION in bridge.h
@@ -110,8 +111,9 @@ Tested on Linux: the smoke test, a simulated container with its own mount and
 PID namespaces, and AddressSanitizer runs with malformed and random frames.
 Not yet tested on a phone. The SELinux side is the part most likely to need
 work. If the shell refuses to start, the log says why, and `sepolicy.rule` is
-where the fix goes. Only KernelSU is targeted. Magisk and APatch run modules
-in other domains, and Magisk also wants a `META-INF` installer.
+where the fix goes. The module installer was checked on Linux against a mock of
+the manager's install functions on 2026-10-31, not yet in KernelSU, Magisk or
+APatch.
 
 ## Protocol
 

@@ -1,10 +1,10 @@
-# android-bridge SELinux rules, KernelSU module format
+# android-bridge SELinux rules
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# The daemon runs in the root manager's domain, su or ksu depending on the
-# KernelSU version. Declaring both keeps the file loadable on either, the same
-# way the Droidspaces module does.
+# The daemon runs in the root manager's domain: su on Magisk, APatch and
+# current KernelSU, ksu on older KernelSU. Declaring both keeps the file
+# loadable on either, the same way the Droidspaces module does.
 type su domain
 type ksu domain
 

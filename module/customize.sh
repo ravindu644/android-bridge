@@ -1,20 +1,19 @@
-# android-bridge installer, sourced by the KernelSU installer
+# android-bridge installer, sourced by the Magisk, KernelSU or APatch installer.
+# $MODPATH is where the module is staged now (modules_update/ when installed
+# from the manager), it becomes $MODDIR, /data/adb/modules/android-bridge,
+# after the reboot.
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-case "$ARCH" in
-    arm64) abi=aarch64 ;;
-    arm) abi=armhf ;;
-    x64) abi=x86_64 ;;
-    x86) abi=x86 ;;
-    riscv64) abi=riscv64 ;;
-    *) abort "! Unsupported architecture: $ARCH" ;;
-esac
+# Nothing is extracted for us, so only this device's binary lands in $MODPATH
+SKIPUNZIP=1
 
-[ -f "$MODPATH/bin/$abi/android-bridge" ] || abort "! No android-bridge binary for $abi"
-mv "$MODPATH/bin/$abi/android-bridge" "$MODPATH/android-bridge"
-rm -rf "$MODPATH/bin"
-set_perm "$MODPATH/android-bridge" 0 0 0755
+unzip -o "$ZIPFILE" module.prop post-fs-data.sh sepolicy.rule -d "$MODPATH" >&2
+unzip -oj "$ZIPFILE" "bin/$ARCH/android-bridge" -d "$MODPATH/bin" >&2
+[ -f "$MODPATH/bin/android-bridge" ] || abort "! No android-bridge binary for $ARCH"
 
-ui_print "- Installed android-bridge for $abi"
+set_perm_recursive "$MODPATH" 0 0 0755 0644
+set_perm "$MODPATH/bin/android-bridge" 0 0 0755
+
+ui_print "- Installed android-bridge for $ARCH"
 ui_print "- The socket appears at /dev/android-bridge/bridge.sock after a reboot"

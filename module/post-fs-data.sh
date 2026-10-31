@@ -10,5 +10,4 @@ LOG=/data/adb/android-bridge.log
 [ -f "$LOG" ] && mv -f "$LOG" "$LOG.old"
 
 # The daemon detaches once its socket is bound, so post-fs-data is not held up.
-"$MODDIR/android-bridge" --daemon >>"$LOG" 2>&1
-
+"$MODDIR/bin/android-bridge" --daemon >>"$LOG" 2>&1

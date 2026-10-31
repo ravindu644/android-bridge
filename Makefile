@@ -88,7 +88,7 @@ help:
 	@echo "Advanced targets:"
 	@echo "  make all-build   - Build for all supported architectures"
 	@echo "  make all-tarball - Build all and create unified distribution"
-	@echo "  make module      - Build all and create the KernelSU module zip"
+	@echo "  make module      - Build all and create the module zip"
 	@echo ""
 	@echo "Options:"
 	@echo "  V=1            - Show full compiler commands"
@@ -172,19 +172,19 @@ all-tarball: all-build
 	rm -rf $$TEMP_DIR; \
 	echo "[+] Created: $$TARBALL ($$(du -h $$TARBALL | cut -f1))"
 
-# Every arch goes in, and customize.sh keeps the one KernelSU reports
+# Every arch goes in under bin/<Magisk $$ARCH>, customize.sh keeps the device's
+MODULE_ARCHES = aarch64:arm64 armhf:arm x86_64:x64 x86:x86 riscv64:riscv64
 module: all-build
 	@VERSION_CODE=$$(echo $(VERSION) | awk -F. '{print $$1*10000+$$2*100+$$3}'); \
 	ZIP="$(BINARY_NAME)-module-v$(VERSION).zip"; \
-	TEMP_DIR="/tmp/android-bridge-module-$$$$"; \
-	mkdir -p $$TEMP_DIR; \
-	cp module/customize.sh module/post-fs-data.sh module/sepolicy.rule $$TEMP_DIR/; \
+	TEMP_DIR=$$(mktemp -d); \
+	cp -r module/. $$TEMP_DIR/; \
 	sed "s/@VERSION@/$(VERSION)/; s/@VERSIONCODE@/$$VERSION_CODE/" module/module.prop > $$TEMP_DIR/module.prop; \
-	for arch in $(ARCHES); do \
-		mkdir -p $$TEMP_DIR/bin/$$arch; \
-		cp $(OUT_DIR)/$(BINARY_NAME)-$$arch $$TEMP_DIR/bin/$$arch/$(BINARY_NAME); \
+	for pair in $(MODULE_ARCHES); do \
+		mkdir -p $$TEMP_DIR/bin/$${pair#*:}; \
+		cp $(OUT_DIR)/$(BINARY_NAME)-$${pair%%:*} $$TEMP_DIR/bin/$${pair#*:}/$(BINARY_NAME); \
 	done; \
-	echo "[*] Creating KernelSU module: $$ZIP..."; \
+	echo "[*] Creating module: $$ZIP..."; \
 	rm -f $$ZIP; (cd $$TEMP_DIR && zip -qr9 - .) > $$ZIP; \
 	rm -rf $$TEMP_DIR; \
 	echo "[+] Created: $$ZIP ($$(du -h $$ZIP | cut -f1))"
