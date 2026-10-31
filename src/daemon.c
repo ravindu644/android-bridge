@@ -201,10 +201,6 @@ static int recv_hello(int fd, struct hello *h) {
   return 0;
 }
 
-static int selinux_on(void) {
-  return access("/sys/fs/selinux/enforce", F_OK) == 0;
-}
-
 /* Dropping uid 0 clears the permitted and effective sets unless something
  * asked to keep them. Check rather than trust. */
 static int caps_clear(void) {
@@ -228,19 +224,14 @@ static int caps_clear(void) {
 static const char *drop_to_shell(void) {
   /* adb shell runs in u:r:shell:s0. Staying in the root manager's domain
    * would hand the shell user a policy written for root. */
-  if (selinux_on() && write_str("/proc/self/attr/exec", "u:r:shell:s0") < 0)
+  if (access("/sys/fs/selinux/enforce", F_OK) == 0 &&
+      write_str("/proc/self/attr/exec", "u:r:shell:s0") < 0)
     return "cannot set the SELinux exec context to u:r:shell:s0";
 
-  int last = 63;
-  FILE *f = fopen("/proc/sys/kernel/cap_last_cap", "re");
-  if (f) {
-    if (fscanf(f, "%d", &last) != 1)
-      last = 63;
-    fclose(f);
-  }
   /* adbd keeps setuid and setgid in the bounding set so run-as still works
-   * through its file capabilities. Nothing else can ever come back. */
-  for (int c = 0; c <= last; c++) {
+   * through its file capabilities. Nothing else can ever come back. A cap
+   * past the kernel's last one fails with EINVAL. */
+  for (int c = 0; c <= 63; c++) {
     if (c == CAP_SETGID_NR || c == CAP_SETUID_NR)
       continue;
     if (prctl(PR_CAPBSET_DROP, c, 0, 0, 0) < 0 && errno != EINVAL)
