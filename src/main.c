@@ -41,7 +41,6 @@ int main(int argc, char **argv) {
       {"daemon", no_argument, NULL, 'D'},
       {"foreground", no_argument, NULL, 'f'},
       {"dir", required_argument, NULL, 'd'},
-      {"socket", required_argument, NULL, 's'},
       {"help", no_argument, NULL, 'h'},
       {"version", no_argument, NULL, 'V'},
       {NULL, 0, NULL, 0},
