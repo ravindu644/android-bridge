@@ -146,7 +146,7 @@ int run_client(const char *path, int pty_mode, int argc, char **argv) {
   }
 
   /* Only the socket goes non-blocking: O_NONBLOCK on a shared terminal would
-   * leak into the shell that started us. Local writes may block, which just
+   * leak into the shell that started us. Local writes may block, which
    * pushes back on the daemon, and it never blocks on us. */
   set_nonblock(s);
   int stdin_eof = 0;
@@ -162,10 +162,10 @@ int run_client(const char *path, int pty_mode, int argc, char **argv) {
         write_all(2, p, len);
       else if (t == F_EXIT && len == 4)
         return (int)(get_be32(p) & 0xff);
-      else
+      else {
         r = -1;
-      if (r < 0)
         break;
+      }
       buf_consume(&in, FRAME_HDR + len);
     }
     if (r < 0) {
