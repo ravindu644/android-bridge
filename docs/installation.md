@@ -59,26 +59,18 @@ Do this only for containers you trust, see [Security](../README.md#security).
 
 ## Copy the client into the container
 
-The client is the same binary as the bridge. Inside the zip it is
-`bin/<arch>/android-bridge`, with the root manager's names for the architecture. Run
-`uname -m` in the container to pick one:
-
-- `aarch64` is `arm64`, which most phones are.
-- `armv7l` or `armv8l` is `arm`.
-- `x86_64` is `x64`, `i686` is `x86`, and `riscv64` is `riscv64`.
-
-With **Android Storage** turned on for the container and the zip in your Download
-folder, as root in the container, for an `arm64` phone. Ubuntu and Debian images come
-without `unzip`, so install it first with `apt install unzip`.
+The client is the same binary the module installed, already built for your phone. In a
+root shell on the phone, such as `su` in Termux, copy it into the container's
+`/usr/local/bin`. `<name>` is the container's name with spaces turned into dashes, for
+example `Ubuntu-24.04`.
 
 ```
-unzip -j /storage/emulated/0/Download/android-bridge-module-v*.zip \
-  bin/arm64/android-bridge -d /usr/local/bin
-chmod 755 /usr/local/bin/android-bridge
-```
+# a container in a sparse image, while it is running
+cp /data/adb/modules/android-bridge/bin/android-bridge /mnt/Droidspaces/<name>/usr/local/bin/
 
-On the phone, the installed copy is `/data/adb/modules/android-bridge/bin/android-bridge`,
-if you would rather copy it from a root shell there.
+# a container in a directory, in the default storage location
+cp /data/adb/modules/android-bridge/bin/android-bridge /data/local/Droidspaces/Containers/<name>/rootfs/usr/local/bin/
+```
 
 After you update the module, copy the client again.
 
