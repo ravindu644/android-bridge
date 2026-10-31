@@ -43,8 +43,13 @@ not give it to a container that runs untrusted code as root.
 
 Tested on Linux on 2026-10-31: the smoke test, a simulated container with its own
 mount and PID namespaces, AddressSanitizer runs with malformed and random frames, and
-the installer against a mock of the manager's install functions. Not yet tested on a
-phone. If the shell refuses to start, the client prints why.
+the installer against a mock of the manager's install functions. Tested on a Galaxy
+A16 (SM-A166P) with Android 14 and KernelSU (ksud 3.3.0) on 2026-10-31, with the
+daemon started by hand from `/data/local/tmp`: the shell was uid 2000 in
+`u:r:shell:s0` with no capabilities, and exit codes, stdin, stderr, terminals, 8 MB
+of data and a client hangup passed through. The daemon's own root check, the module
+install and the start at boot are not yet tested on a phone. If the shell
+refuses to start, the client prints why.
 
 ## Use
 
