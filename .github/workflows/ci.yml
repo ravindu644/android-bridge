@@ -31,7 +31,6 @@ jobs:
       # Droidspaces' musl toolchains, published as release assets; the Makefile
       # finds them in ~/toolchains/<triplet>-cross/bin
       TOOLCHAINS_URL: https://github.com/ravindu644/Droidspaces-OSS/releases/download/compilers-25843896720
-      HAS_TELEGRAM: ${{ secrets.API_ID != '' && secrets.API_HASH != '' }}
     steps:
     - uses: actions/checkout@v5
       with:
@@ -79,38 +78,6 @@ jobs:
         mkdir -p dist
         mv output/android-bridge-module-v${VERSION}.zip dist/${ZIP_NAME}
         (cd dist && sha256sum ${ZIP_NAME} > SHA256SUMS)
-        echo "ZIP_FILE=dist/${ZIP_NAME}" >> $GITHUB_ENV
-
-    - name: Generate Telegram Message
-      if: github.event_name != 'pull_request'
-      run: |
-        if [ -n "$TAG" ]; then
-          EVENT_TYPE="Official Release"
-        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          EVENT_TYPE="Manual Trigger"
-        else
-          EVENT_TYPE="Git Push"
-        fi
-        COMMIT_MSG=$(git log -1 --pretty=format:%s)
-        COMMIT_SHA=$(git log -1 --pretty=format:%h)
-        COMMIT_AUTHOR=$(git log -1 --pretty=format:%an)
-        {
-          echo "TELEGRAM_MESSAGE<<EOF"
-          echo "**android-bridge Build Successful**"
-          echo ""
-          echo "**Repository:** [${{ github.repository }}](https://github.com/${{ github.repository }})"
-          echo "**Branch:** ${{ github.ref_name }}"
-          echo "**Author:** $COMMIT_AUTHOR"
-          echo "**Event:** $EVENT_TYPE"
-          echo "**Commit SHA:** [$COMMIT_SHA](https://github.com/${{ github.repository }}/commit/${{ github.sha }})"
-          echo ""
-          echo "**Commit Message:**"
-          echo ""
-          echo "\`\`\`"
-          echo "$COMMIT_MSG"
-          echo "\`\`\`"
-          echo "EOF"
-        } >> "$GITHUB_ENV"
 
     - name: Upload Final Artifacts (module zip)
       uses: actions/upload-artifact@v4
@@ -119,21 +86,6 @@ jobs:
         path: dist/
         if-no-files-found: error
         retention-days: 14
-
-    - name: Send Telegram Notification
-      if: |
-        github.event_name != 'pull_request' &&
-        env.HAS_TELEGRAM == 'true'
-      uses: xz-dev/TelegramFileUploader@v1
-      with:
-        to-who: ${{ secrets.TELEGRAM_TO }}
-        message: ${{ env.TELEGRAM_MESSAGE }}
-        files: |
-          ${{ env.ZIP_FILE }}
-      env:
-        API_ID: ${{ secrets.API_ID }}
-        API_HASH: ${{ secrets.API_HASH }}
-        BOT_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
 
     # Every commit since the previous tag, so GitHub's own notes, which list
     # only pull requests, are not wanted on top. On a tag push HEAD is the tag,
