@@ -2,11 +2,8 @@
 # Smoke test for android-bridge on a Linux host, run as root.
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
-#
-# The daemon always runs /system/bin/sh. On a desktop that path does not
-# exist, so link it to /bin/sh first, on a machine where that is acceptable.
 
-BIN=$(realpath "${1:-out/android-bridge}")
+BIN=$(realpath "${1:-output/android-bridge}")
 [ "$(id -u)" = 0 ] || { echo "smoke: needs root"; exit 1; }
 [ -x /system/bin/sh ] || { echo "smoke: needs /system/bin/sh (ln -s /bin/sh /system/bin/sh)"; exit 1; }
 
@@ -15,11 +12,12 @@ DIR=$T/run
 SOCK=$DIR/bridge.sock
 fails=0
 trap 'kill $DPID 2>/dev/null; rm -rf "$T"' EXIT
+# Waits up to 5 s for a shell condition.
+until_() { i=0; while ! eval "$1" && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done; }
 
 "$BIN" --daemon --foreground --dir "$DIR" 2>"$T/log" &
 DPID=$!
-i=0
-while [ ! -S "$SOCK" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+until_ '[ -S "$SOCK" ]'
 
 # The shell gets Android's PATH, which has no /bin on a desktop.
 P='export PATH=/usr/bin:/bin:$PATH;'
@@ -43,7 +41,9 @@ head -c 8000000 /dev/urandom > "$T/big"
 check "8 MB both ways without a deadlock" "$(c cat <"$T/big" | md5sum)" "$(md5sum <"$T/big")"
 
 "$BIN" -s "$SOCK" "$P" sleep 271828 & CPID=$!
-sleep 0.5; kill $CPID; wait $CPID 2>/dev/null; sleep 0.5
+until_ 'pgrep -f "^sleep 2718" >/dev/null'
+kill $CPID; wait $CPID 2>/dev/null
+until_ '! pgrep -f "^sleep 2718" >/dev/null'
 check "client hangup ends the shell" "$(pgrep -f '^sleep 2718' | wc -l)" "0"
 
 out=$(setpriv --reuid=1000 --regid=1000 --clear-groups "$BIN" -s "$SOCK" true 2>&1)
@@ -65,8 +65,8 @@ chmod 700 "$DIR"; chmod 600 "$SOCK"
 check "a second daemon leaves the first alone" "$(c echo still)" "still"
 
 kill $DPID; wait $DPID 2>/dev/null
-"$BIN" --daemon --foreground --dir "$DIR" 2>/dev/null & DPID=$!
-sleep 0.3
+"$BIN" --daemon --foreground --dir "$DIR" 2>>"$T/log" & DPID=$!
+until_ '[ "$(grep -c listening "$T/log")" = 2 ]'
 check "a stale socket from a crash is replaced" "$(c echo back)" "back"
 
 echo "--- daemon log"; cat "$T/log"
