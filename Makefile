@@ -6,14 +6,14 @@ BINARY_NAME = android-bridge
 SRC_DIR     = src
 OUT_DIR     = output
 
-# Default compiler. Do not allow recursive builds to accidentally get empty CC.
+# make -R drops the built-in CC, and ARCH below needs one
 CC ?= cc
 
 # AB_VERSION in bridge.h is the one place the version lives; `make bump` rewrites it
 VERSION := $(shell grep "define AB_VERSION" $(SRC_DIR)/include/bridge.h | awk '{print $$3}' | tr -d '"')
 VERSION_CODE = $(shell echo $(VERSION) | awk -F. '{print $$1*10000+$$2*100+$$3}')
 
-NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
+NPROC := $(shell nproc 2>/dev/null || echo 4)
 
 # V=1 shows full commands, V=0 (default) shows kernel-style short logs
 V ?= 0
@@ -35,7 +35,7 @@ SRCS = $(SRC_DIR)/main.c \
        $(SRC_DIR)/client.c
 
 # Hardened warning set, all warnings are errors
-CFLAGS  = -Wall -Wextra -Wpedantic -Werror -O2 -flto=auto -std=gnu99 -I$(SRC_DIR)/include -no-pie -pthread
+CFLAGS  = -Wall -Wextra -Wpedantic -Werror -O2 -flto=auto -std=gnu99 -I$(SRC_DIR)/include -no-pie
 CFLAGS += -Wformat=2 -Wformat-security -Wformat-overflow=2 -Wformat-truncation=2
 CFLAGS += -Wnull-dereference -Wcast-qual -Wlogical-op -Wshadow -Wdouble-promotion -Wundef
 CFLAGS += -Wduplicated-cond -Wduplicated-branches -Wimplicit-fallthrough=3
@@ -43,14 +43,10 @@ CFLAGS += -fstack-protector-strong
 # A header edit rebuilds every object that includes it
 CFLAGS += -MMD -MP
 # LTO raises some warnings only at link time, and they are failures there too
-LDFLAGS = -static -no-pie -flto=auto -pthread -Werror
-ifeq ($(NO_STRIP),)
-  LDFLAGS += -s
-endif
+LDFLAGS = -static -no-pie -flto=auto -Werror -s
 LIBS    = -lutil
 
-ARCH := $(shell $(CC) -dumpmachine 2>/dev/null | cut -d'-' -f1 | \
-        sed 's/i.86/x86/; s/armv7l/armhf/; s/^arm.*/armhf/; s/unknown/x86_64/' || echo "x86_64")
+ARCH := $(shell $(CC) -dumpmachine 2>/dev/null | cut -d'-' -f1 | sed 's/i.86/x86/; s/^arm.*/armhf/')
 
 # Objects and the binary live per arch so the cross builds do not collide
 OBJ_DIR = $(OUT_DIR)/.obj/$(ARCH)
@@ -80,29 +76,21 @@ help:
 	@echo ""
 	@echo "Build (static, musl):"
 	@echo "  make native    - Build for this machine's architecture"
-	@echo "  make x86_64    - Build for 64-bit x86"
-	@echo "  make aarch64   - Build for 64-bit ARM"
-	@echo "  make armhf     - Build for 32-bit ARM (hard-float)"
-	@echo "  make x86       - Build for 32-bit x86"
-	@echo "  make riscv64   - Build for 64-bit RISC-V"
-	@echo ""
-	@echo "Advanced targets:"
-	@echo "  make all-build   - Build for all supported architectures"
-	@echo "  make module      - Build all into output/$(BINARY_NAME)-module-v$(VERSION).zip"
+	@echo "  make <arch>    - One of: $(ARCHES)"
+	@echo "  make all-build - Build every arch"
+	@echo "  make module    - Build every arch into output/$(BINARY_NAME)-module-v$(VERSION).zip"
 	@echo ""
 	@echo "Options:"
 	@echo "  V=1            - Show full compiler commands"
 	@echo "  MUSL_CROSS=dir - Directory holding <triplet>-gcc"
-	@echo "  NO_STRIP=1     - Keep symbols"
 	@echo ""
 	@echo "Other:"
 	@echo "  make bump NEW=x.y.z - Set the version (bridge.h)"
 	@echo "  make clean     - Remove build artifacts"
 	@echo "  make debug-hardened - Build with ASan/UBSan/LSan to find bugs"
-	@echo "  make format    - Run clang-format on all .c/.h/.cpp files"
+	@echo "  make format    - Run clang-format on src/"
 	@echo "  make test      - Run the smoke test against output/$(BINARY_NAME) (root, Linux)"
 
-# A real daemon on a temporary directory, so it needs root and /system/bin/sh.
 # Build first with `make native`, or point it at another binary with BIN=.
 BIN ?= $(OUT_DIR)/$(BINARY_NAME)
 test:
@@ -143,12 +131,10 @@ debug-hardened:
 	@echo "[*] Building hardened debug binary..."
 	@mkdir -p $(OUT_DIR)
 	$(Q)$(CC) $(SRCS) -o $(OUT_DIR)/$(BINARY_NAME)-hardened \
-		-I$(SRC_DIR)/include -I$(SRC_DIR) -g3 -O1 -pthread -lutil \
+		-I$(SRC_DIR)/include -g3 -O1 -lutil \
 		-fsanitize=address -fsanitize=undefined -fsanitize=leak \
-		-fstack-protector-strong -D_FORTIFY_SOURCE=2 \
-		-Wall -Wextra -Wno-unused-parameter
+		-fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wall -Wextra
 	@echo "[+] Hardened binary built: $(OUT_DIR)/$(BINARY_NAME)-hardened"
-	@echo "[!] Note: Run this on a standard Linux host (not static/musl) for best results."
 
 # Stops at the first arch that fails; an unchanged arch costs nothing
 all-build:
@@ -180,7 +166,7 @@ bump:
 
 format:
 	@command -v clang-format >/dev/null 2>&1 || { echo "Error: clang-format not found"; exit 1; }
-	@find $(SRC_DIR) -name '*.c' -o -name '*.h' -o -name '*.cpp' | xargs clang-format -i
+	@clang-format -i $(SRC_DIR)/*.c $(SRC_DIR)/include/*.h
 	@echo "[+] Formatted all source files"
 
 clean:
