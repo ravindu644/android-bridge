@@ -26,8 +26,9 @@ this order:
 2. Whether the bridge was running when the container started. Droidspaces skips a bind
    mount whose folder is missing at start, so a container that started before the
    bridge, or while it was not running, gets nothing. Restart the container.
-3. The log on the phone. No `listening on` line since the last boot means the bridge did
-   not start. Check that the module is installed and enabled, and reboot.
+3. The module in the root manager. `🔴 Not running` means the bridge did not start at
+   boot, and the log on the phone says why. No status at all means the module is not
+   installed or not enabled. Fix that, and reboot.
 
 **`android-bridge: the daemon is not running (/run/android-bridge/bridge.sock)`**
 The socket is there but nothing answers it, so the bridge stopped after it started. The

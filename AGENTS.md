@@ -77,6 +77,8 @@ edit it.
 - The zip's arch directories use the manager's `$ARCH` names (`arm64`, `arm`, `x64`,
   `x86`, `riscv64`). `MODULE_ARCHES` in the Makefile maps the build names to them, a new
   arch goes there.
+- `post-fs-data.sh` writes the daemon's status at boot into `module.prop`'s
+  `description`, as Droidspaces' `service.sh` does, so the root manager shows it.
 - post-fs-data blocks boot for up to 40 seconds. The daemon detaches once its socket is
   bound, keep it that way, and do not move it to `service.sh`: the socket has to exist
   before Droidspaces boots a container.
@@ -174,8 +176,9 @@ These rules apply to code, comments, commit messages and documentation.
   is worth noting", "it is important to", "in order to", "note that", "keep in mind",
   and no sentence that starts with "this allows", "this enables" or "this ensures".
 - No hedging and no padding. "Should work" and "might" only when the sentence says what
-  was not checked. No paragraph that announces or restates the page. No emoji. Bold only
-  opens a bullet, or names a symptom in `docs/troubleshooting.md`.
+  was not checked. No paragraph that announces or restates the page. No emoji, except the
+  🟢 and 🔴 of the module status, which match Droidspaces'. Bold only opens a bullet, or
+  names a symptom in `docs/troubleshooting.md`.
 - Ten lines that work beat a hundred that do the same thing. Delete before you add.
 
 ## Commits

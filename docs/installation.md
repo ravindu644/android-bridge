@@ -10,15 +10,9 @@ bridge through a bind mount you add in Droidspaces.
    [latest release](https://github.com/ravindu644/android-bridge/releases/latest), or
    build it, see [build from source](#build-from-source).
 2. Flash it in KernelSU, Magisk or APatch, and reboot.
-3. Check that the bridge started. In a root shell on the phone:
-
-   ```
-   cat /data/adb/android-bridge.log
-   ```
-
-   The first line contains `listening on /dev/android-bridge/bridge.sock`. Without a root
-   shell on the phone, skip this: the client tells you from the container if the bridge
-   is missing.
+3. Check that the bridge started. The module's description in the root manager shows
+   `🟢 Running (PID ...)` once it has, or `🔴 Not running` with the log to read. It is
+   the status at boot, and stays as it is until the next one.
 
 What the module does:
 
@@ -26,8 +20,8 @@ What the module does:
   The zip carries every architecture, and only the one your phone needs is installed.
 - **Loads `sepolicy.rule` at boot,** which lets the bridge start the shell in the same
   SELinux domain `adb shell` uses.
-- **Starts the bridge early in boot,** before Droidspaces starts any container, and logs
-  to `/data/adb/android-bridge.log`.
+- **Starts the bridge early in boot,** before Droidspaces starts any container, logs to
+  `/data/adb/android-bridge.log`, and writes the result into its description.
 
 Nothing else runs. Outside the module, the bridge creates `/dev/android-bridge` at each
 boot and keeps the log of the previous boot as `android-bridge.log.old`.
