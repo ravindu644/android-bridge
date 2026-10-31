@@ -47,9 +47,12 @@ the installer against a mock of the manager's install functions. Tested on a Gal
 A16 (SM-A166P) with Android 14 and KernelSU (ksud 3.3.0) on 2026-10-31, with the
 daemon started by hand from `/data/local/tmp`: the shell was uid 2000 in
 `u:r:shell:s0` with no capabilities, and exit codes, stdin, stderr, terminals, 8 MB
-of data and a client hangup passed through. The daemon's own root check, the module
-install and the start at boot are not yet tested on a phone. If the shell
-refuses to start, the client prints why.
+of data and a client hangup passed through. On the same phone, with that daemon
+started by hand on `/dev/android-bridge` and the bind from step 4, root in a
+Droidspaces 7.1.0 Ubuntu 24.04 container running systemd ran `dumpsys`, `getprop`
+and `pm` through it, a non-root user was refused, and root in a user namespace was
+refused by the daemon. The module install and the start at boot are not yet tested
+on a phone. If the shell refuses to start, the client prints why.
 
 ## Use
 
