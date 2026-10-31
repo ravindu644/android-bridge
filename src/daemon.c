@@ -1,5 +1,5 @@
 /*
- * android-bridge: the Android side, started from a KernelSU module
+ * android-bridge: the Android side, started from a root module
  *
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -12,7 +12,6 @@
 
 #include "bridge.h"
 
-#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
@@ -117,49 +116,15 @@ static int peer_is_real_root(int fd, struct ucred *cred) {
   return ns_cmp(cred->pid, "user") == 1;
 }
 
-static void deny(int conn) {
-  static const char msg[] =
-      "android-bridge: permission denied, only real root may connect\n";
-  unsigned char f[2 * FRAME_HDR + sizeof(msg) + 4];
-  size_t n = sizeof(msg) - 1;
-  f[0] = F_STDERR;
-  put_be32(f + 1, (uint32_t)n);
-  memcpy(f + FRAME_HDR, msg, n);
-  f[FRAME_HDR + n] = F_EXIT;
-  put_be32(f + FRAME_HDR + n + 1, 4);
-  put_be32(f + 2 * FRAME_HDR + n, 255);
-  if (send(conn, f, 2 * FRAME_HDR + n + 4, MSG_DONTWAIT | MSG_NOSIGNAL) < 0) {
-    /* the peer is not owed an explanation */
-  }
-}
-
+/* Nothing has been sent on conn yet, so these few bytes fit its empty buffer
+ * and never block. The accept loop must not wait on a peer that never reads. */
 static void say(int conn, const char *msg) {
   unsigned char code[4];
   put_be32(code, 255);
   buf_frame(&tosock, F_STDERR, msg, (uint32_t)strlen(msg));
   buf_frame(&tosock, F_EXIT, code, 4);
-  buf_flush_all(&tosock, conn);
-}
-
-static int read_full(int fd, void *p, size_t n) {
-  unsigned char *c = p;
-  while (n) {
-    ssize_t r = read(fd, c, n);
-    if (r < 0 && errno == EINTR)
-      continue;
-    if (r <= 0)
-      return -1;
-    c += r;
-    n -= (size_t)r;
-  }
-  return 0;
-}
-
-static int valid_term(const char *t) {
-  for (; *t; t++)
-    if (!isalnum((unsigned char)*t) && !strchr("-_.+", *t))
-      return 0;
-  return 1;
+  send(conn, tosock.data, tosock.len, MSG_DONTWAIT | MSG_NOSIGNAL);
+  tosock.len = 0;
 }
 
 /* -1 garbage, -2 a client from another protocol version */
@@ -169,17 +134,14 @@ static int recv_hello(int fd, struct hello *h) {
   setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
   unsigned char hdr[FRAME_HDR];
-  if (read_full(fd, hdr, sizeof(hdr)) < 0)
+  if (recv(fd, hdr, sizeof(hdr), MSG_WAITALL) != (ssize_t)sizeof(hdr))
     return -1;
   uint32_t len = get_be32(hdr + 1);
   if (hdr[0] != F_HELLO || len < 7 || len > FRAME_MAX)
     return -1;
   unsigned char *p = malloc(len + 1);
-  if (!p || read_full(fd, p, len) < 0)
+  if (!p || recv(fd, p, len, MSG_WAITALL) != (ssize_t)len)
     return -1;
-
-  tv.tv_sec = 0;
-  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
   if (p[0] != AB_PROTO)
     return -2;
@@ -191,7 +153,9 @@ static int recv_hello(int fd, struct hello *h) {
     return -1;
   memcpy(h->term, p + 7, tlen);
   h->term[tlen] = '\0';
-  if (!valid_term(h->term))
+  if (h->term[strspn(h->term,
+                     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                     "0123456789-_.+")])
     h->term[0] = '\0';
   size_t clen = len - 7 - tlen;
   h->cmd = (char *)p + 7 + tlen;
@@ -248,10 +212,10 @@ static const char *drop_to_shell(void) {
   return NULL;
 }
 
-/* The daemon inherits the environment ksud runs module scripts with, which
- * carries busybox standalone mode and the manager's PATH. adbd's shell gets
- * init's environment, so keep what init exports and set the rest the way
- * adbd does. */
+/* The daemon inherits the environment the root manager runs module scripts
+ * with, which carries busybox standalone mode and the manager's PATH. adbd's
+ * shell gets init's environment, so keep what init exports and set the rest
+ * the way adbd does. */
 static int keep_env(const char *e) {
   static const char *const keys[] = {"BOOTCLASSPATH=",
                                      "DEX2OATBOOTCLASSPATH=",
@@ -272,7 +236,6 @@ static int keep_env(const char *e) {
 }
 
 static void become_shell(const struct hello *h, int pty) {
-  extern char **environ;
   sigset_t none;
   sigemptyset(&none);
   sigprocmask(SIG_SETMASK, &none, NULL);
@@ -383,19 +346,19 @@ static int pump_out(int fd, uint8_t type) {
   return 1;
 }
 
-static void close_out(struct child *c, int *fd, int pty) {
+static void close_out(struct child *c, int *fd) {
+  if (c->in == *fd)
+    c->in = -1; /* the same pty master */
   close(*fd);
   *fd = -1;
-  if (pty)
-    c->in = -1; /* the same master */
 }
 
 /* Whatever the shell wrote before exiting still sits in the pipe or pty. */
-static int drain(int conn, struct child *c, int *fd, uint8_t type, int pty) {
+static int drain(int conn, struct child *c, int *fd, uint8_t type) {
   while (*fd >= 0) {
     int r = pump_out(*fd, type);
     if (r < 0)
-      close_out(c, fd, pty);
+      close_out(c, fd);
     if (buf_flush_all(&tosock, conn) < 0)
       return -1;
     if (r == 0)
@@ -449,7 +412,7 @@ static int relay(int conn, struct child *c, int pty, int sfd) {
         close(c->in);
       c->in = -1;
     }
-    /* A pty has no EOF to pass on, ^D is just a byte the client sends. */
+    /* A pty has no EOF to pass on, ^D is a byte the client sends. */
     if (!pty && stdin_eof && c->in >= 0 && !tochild.len) {
       close(c->in);
       c->in = -1;
@@ -494,10 +457,10 @@ static int relay(int conn, struct child *c, int pty, int sfd) {
     }
     if (i_out >= 0 && pf[i_out].revents & (POLLIN | POLLHUP | POLLERR) &&
         pump_out(c->out, F_STDOUT) < 0)
-      close_out(c, &c->out, pty);
+      close_out(c, &c->out);
     if (i_err >= 0 && pf[i_err].revents & (POLLIN | POLLHUP | POLLERR) &&
         pump_out(c->err, F_STDERR) < 0)
-      close_out(c, &c->err, 0);
+      close_out(c, &c->err);
     if (pf[i_sig].revents & POLLIN) {
       struct signalfd_siginfo si;
       while (read(sfd, &si, sizeof(si)) > 0)
@@ -510,8 +473,8 @@ static int relay(int conn, struct child *c, int pty, int sfd) {
     }
   }
 
-  if (drain(conn, c, &c->out, F_STDOUT, pty) < 0 ||
-      drain(conn, c, &c->err, F_STDERR, 0) < 0)
+  if (drain(conn, c, &c->out, F_STDOUT) < 0 ||
+      drain(conn, c, &c->err, F_STDERR) < 0)
     goto hangup;
   unsigned char b[4];
   put_be32(b, (uint32_t)code);
@@ -531,8 +494,8 @@ static int session(int conn, const struct ucred *cred) {
   int r = recv_hello(conn, &h);
   if (r < 0) {
     if (r == -2)
-      say(conn, "android-bridge: the client and the daemon are different "
-                "versions\n");
+      say(conn,
+          "android-bridge: the client and the daemon are different versions\n");
     logmsg("pid %d: dropped, no valid hello", (int)cred->pid);
     return 1;
   }
@@ -567,10 +530,7 @@ static int prepare_dir(const char *dir) {
   int fd = open(dir, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0)
     return -1;
-  struct stat st;
-  int r = fstat(fd, &st) < 0 || fchown(fd, 0, 0) < 0 || fchmod(fd, 0700) < 0
-              ? -1
-              : 0;
+  int r = fchown(fd, 0, 0) < 0 || fchmod(fd, 0700) < 0 ? -1 : 0;
   close(fd);
   return r;
 }
@@ -616,26 +576,6 @@ static int open_listener(const char *dir) {
   return s;
 }
 
-static int daemonize(void) {
-  pid_t p = fork();
-  if (p < 0)
-    return -1;
-  if (p > 0)
-    _exit(0);
-  setsid();
-  p = fork();
-  if (p < 0)
-    _exit(1);
-  if (p > 0)
-    _exit(0);
-  int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
-  if (fd >= 0) {
-    dup2(fd, 0);
-    close(fd);
-  }
-  return chdir("/");
-}
-
 int run_daemon(const char *dir, int foreground) {
   if (getuid() != 0 || geteuid() != 0) {
     fprintf(stderr, "android-bridge: the daemon must run as root\n");
@@ -655,7 +595,8 @@ int run_daemon(const char *dir, int foreground) {
     logmsg("cannot listen in %s: %s", dir, strerror(errno));
     return 1;
   }
-  if (!foreground && daemonize() < 0)
+  /* stdout and stderr stay on the log post-fs-data opened. */
+  if (!foreground && (daemon(0, 1) < 0 || !freopen("/dev/null", "r", stdin)))
     return 1;
 
   /* Losing the daemon to the low memory killer locks a headless phone out. */
@@ -676,7 +617,8 @@ int run_daemon(const char *dir, int foreground) {
     struct ucred cred;
     if (!peer_is_real_root(conn, &cred)) {
       logmsg("denied pid %d uid %d", (int)cred.pid, (int)cred.uid);
-      deny(conn);
+      say(conn,
+          "android-bridge: permission denied, only real root may connect\n");
       close(conn);
       continue;
     }
