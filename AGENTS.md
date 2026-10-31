@@ -28,7 +28,7 @@ The project is small on purpose. Do not grow it.
 
 - One binary, no config file, no flags beyond `usage()`. A fixed value is a `#define`
   in `bridge.h`. No dependency beyond musl and `-lutil`.
-- No CI workflow, `CONTRIBUTING.md`, `CHANGELOG.md` or new doc page unless asked.
+- No second workflow, `CONTRIBUTING.md`, `CHANGELOG.md` or new doc page unless asked.
 
 Before you write anything, work down this list and stop at the first answer that holds:
 
@@ -53,6 +53,12 @@ same `~/toolchains`: change it in Droidspaces first, then copy it here.
 
 Run `make test` after any change to `src/`, and for a change to the security checks
 also `make debug-hardened` then `make test BIN=output/android-bridge-hardened`.
+
+`.github/workflows/ci.yml` is Droidspaces' `ci.yml` cut down to the module zip. Every
+push to `main` builds the zip and keeps it as an artifact. A `v*` tag that matches
+`AB_VERSION` publishes it as a release, with every commit since the previous tag as the
+notes, so commit subjects are what readers see. A release is `make bump NEW=x.y.z`, a
+`build:` commit, then the tag.
 
 ## The module
 
@@ -180,7 +186,7 @@ These rules apply to code, comments, commit messages and documentation.
   rule wins over any default the agent's harness suggests.
 - One logical change per commit. Check `git status` and stage only what it is about.
 - Subject under 72 characters, lower case after the prefix, no full stop. Prefixes:
-  `daemon:`, `client:`, `proto:`, `module:`, `build:`, `docs:`, `fix:`, and
+  `daemon:`, `client:`, `proto:`, `module:`, `build:`, `ci:`, `docs:`, `fix:`, and
   `fix(security):` for anything that touches the gates above.
 - The body says what was wrong, what changed, and where it was tested. It does not list
   the files.

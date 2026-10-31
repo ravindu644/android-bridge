@@ -1,0 +1,170 @@
+name: android-bridge CI
+
+# One workflow, as in Droidspaces. Every push and pull request builds the module
+# zip for every arch and uploads it as an artifact. A v* tag, or a manual run
+# with tag_name, also publishes it as a GitHub release. The musl toolchains come
+# from Droidspaces' compilers-* release and are cached between runs.
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Publish a release for this tag (existing or new, must match AB_VERSION)"
+        required: false
+        type: string
+
+permissions:
+  # Needed to create the release on a tag; a pull request token is read-only regardless
+  contents: write
+
+jobs:
+  build:
+    name: Build the module (aarch64, armhf, x86_64, x86, riscv64)
+    runs-on: ubuntu-latest
+    env:
+      # The tag being released, if any
+      TAG: ${{ inputs.tag_name || (github.ref_type == 'tag' && github.ref_name) || '' }}
+      # Droidspaces' musl toolchains, published as release assets; the Makefile
+      # finds them in ~/toolchains/<triplet>-cross/bin
+      TOOLCHAINS_URL: https://github.com/ravindu644/Droidspaces-OSS/releases/download/compilers-25843896720
+      HAS_TELEGRAM: ${{ secrets.API_ID != '' && secrets.API_HASH != '' }}
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    # One version, AB_VERSION in bridge.h. A tag must match it, so a forgotten
+    # `make bump` fails here instead of shipping.
+    - name: Settle the version
+      run: |
+        VERSION=$(grep "define AB_VERSION" src/include/bridge.h | awk '{print $3}' | tr -d '"')
+        if [ -n "$TAG" ]; then
+          [ "${TAG#v}" = "$VERSION" ] || { echo "Tag $TAG does not match AB_VERSION $VERSION (run make bump NEW=${TAG#v})"; exit 1; }
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    # The release URL names a fixed set of toolchains, so it is the whole key
+    - name: Cache Toolchains
+      id: toolchains
+      uses: actions/cache@v4
+      with:
+        path: ~/toolchains
+        key: musl-toolchains-${{ env.TOOLCHAINS_URL }}
+
+    - name: Download Toolchains
+      if: steps.toolchains.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p $HOME/toolchains
+        cd $HOME/toolchains
+        for t in aarch64-linux-musl arm-linux-musleabihf i686-linux-musl x86_64-linux-musl riscv64-linux-musl; do
+          echo "[*] Downloading $t toolchain..."
+          wget -q $TOOLCHAINS_URL/$t-cross.tar.zst
+          tar -xf $t-cross.tar.zst && rm $t-cross.tar.zst
+        done
+        echo "[+] Toolchains ready."
+
+    - name: Build the module
+      run: make module
+
+    # Every build, release or not, is named <version>-<commit> so the exact
+    # source a zip came from is legible from its filename, as Droidspaces does.
+    - name: Stage & Rename Artifacts
+      run: |
+        HASH=$(git log -1 --pretty=%h)
+        ZIP_NAME="android-bridge-module-v${VERSION}-${HASH}.zip"
+        mkdir -p dist
+        mv output/android-bridge-module-v${VERSION}.zip dist/${ZIP_NAME}
+        (cd dist && sha256sum ${ZIP_NAME} > SHA256SUMS)
+        echo "ZIP_FILE=dist/${ZIP_NAME}" >> $GITHUB_ENV
+
+    - name: Generate Telegram Message
+      if: github.event_name != 'pull_request'
+      run: |
+        if [ -n "$TAG" ]; then
+          EVENT_TYPE="Official Release"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          EVENT_TYPE="Manual Trigger"
+        else
+          EVENT_TYPE="Git Push"
+        fi
+        COMMIT_MSG=$(git log -1 --pretty=format:%s)
+        COMMIT_SHA=$(git log -1 --pretty=format:%h)
+        COMMIT_AUTHOR=$(git log -1 --pretty=format:%an)
+        {
+          echo "TELEGRAM_MESSAGE<<EOF"
+          echo "**android-bridge Build Successful**"
+          echo ""
+          echo "**Repository:** [${{ github.repository }}](https://github.com/${{ github.repository }})"
+          echo "**Branch:** ${{ github.ref_name }}"
+          echo "**Author:** $COMMIT_AUTHOR"
+          echo "**Event:** $EVENT_TYPE"
+          echo "**Commit SHA:** [$COMMIT_SHA](https://github.com/${{ github.repository }}/commit/${{ github.sha }})"
+          echo ""
+          echo "**Commit Message:**"
+          echo ""
+          echo "\`\`\`"
+          echo "$COMMIT_MSG"
+          echo "\`\`\`"
+          echo "EOF"
+        } >> "$GITHUB_ENV"
+
+    - name: Upload Final Artifacts (module zip)
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-bridge-artifacts
+        path: dist/
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Send Telegram Notification
+      if: |
+        github.event_name != 'pull_request' &&
+        env.HAS_TELEGRAM == 'true'
+      uses: xz-dev/TelegramFileUploader@v1
+      with:
+        to-who: ${{ secrets.TELEGRAM_TO }}
+        message: ${{ env.TELEGRAM_MESSAGE }}
+        files: |
+          ${{ env.ZIP_FILE }}
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        API_HASH: ${{ secrets.API_HASH }}
+        BOT_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+
+    # Every commit since the previous tag, so GitHub's own notes, which list
+    # only pull requests, are not wanted on top. On a tag push HEAD is the tag,
+    # so the previous one is found from its parent; a manual run for a tag not
+    # made yet ends at HEAD
+    - name: Generate Changelog
+      if: env.TAG != ''
+      run: |
+        END=HEAD
+        git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null && END="${TAG}"
+        PREV=$(git describe --tags --abbrev=0 "${END}^" 2>/dev/null || true)
+        echo "Previous tag: ${PREV:-none}"
+        {
+          echo "## What's Changed"
+          git log --no-merges --pretty=format:"* %s (%h)" ${PREV:+${PREV}..}${END}
+          echo
+          echo
+          echo "---"
+          echo "**Automated Release by android-bridge CI**"
+        } > dist/CHANGELOG.md
+
+    - name: Publish GitHub Release
+      if: env.TAG != ''
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG }}
+        name: android-bridge ${{ env.TAG }}
+        target_commitish: ${{ github.sha }}
+        files: |
+          dist/*.zip
+          dist/SHA256SUMS
+        body_path: dist/CHANGELOG.md
+        draft: false
+        prerelease: false
