@@ -38,12 +38,13 @@
 #define CAP_SETGID_NR 6
 #define CAP_SETUID_NR 7
 
-/* adbd's groups for its shell: input, log, adb, sdcard_rw, sdcard_r,
- * ext_data_rw, ext_obb_rw, readtracefs, net_bt_admin, net_bt, inet,
- * net_bw_stats, readproc, uhid. Without them getevent, logcat, ping and
- * /sdcard behave differently from adb shell. */
+/* adbd's groups for its shell (packages/modules/adb daemon/main.cpp at
+ * 1cf2f017): input, log, adb, sdcard_rw, sdcard_r, ext_data_rw, ext_obb_rw,
+ * net_bt_admin, net_bt, inet, net_bw_stats, readproc, uhid, readtracefs.
+ * Without them getevent, logcat, ping and /sdcard behave differently from
+ * adb shell. */
 static const gid_t shell_groups[] = {1004, 1007, 1011, 1015, 1028, 1078, 1079,
-                                     1092, 3001, 3002, 3003, 3006, 3009, 3011};
+                                     3001, 3002, 3003, 3006, 3009, 3011, 3012};
 
 struct hello {
   unsigned flags;
