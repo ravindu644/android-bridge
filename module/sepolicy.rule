@@ -10,7 +10,9 @@ type ksu domain
 
 # The shell runs in u:r:shell:s0 like adb shell, but its stdio is a pty or
 # pipes the daemon opened, so it has to use the daemon's descriptors and
-# signal it on exit.
+# signal it on exit. noatsecure stops bionic stripping TMPDIR and the LD_
+# variables, as AOSP gives adbd's shell: "Do not sanitize the environment or
+# open fds of the shell" (system/sepolicy private/adbd.te at 4571ddd9).
 allow su shell process { transition noatsecure rlimitinh siginh }
 allow ksu shell process { transition noatsecure rlimitinh siginh }
 allow shell su fd use
