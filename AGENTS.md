@@ -19,7 +19,8 @@ is both halves:
 
 The readers run Droidspaces on their own phones and are not developers of this project.
 Every change is judged by whether such a reader can still get from "I have the zip" to
-"my container rebooted the phone" by reading the README top to bottom.
+"my container rebooted the phone" by reading the README and `docs/installation.md` top to
+bottom.
 
 ## Keep it simple
 
@@ -44,11 +45,11 @@ at a trust boundary, or anything the requester asked for by name.
 
 ## Build
 
-The commands are in the README's Build section, and `make native` is the real build
-command. A new `.c` file goes into `SRCS` by hand. A compiler or `CFLAGS` change is not
-tracked, so `make clean` after those. `scripts/install-musl.sh` is Droidspaces' script
-with only its name changed, and both projects install into the same `~/toolchains`:
-change it in Droidspaces first, then copy it here.
+The commands are in `docs/installation.md`, under Build from source, and `make native`
+is the real build command. A new `.c` file goes into `SRCS` by hand. A compiler or
+`CFLAGS` change is not tracked, so `make clean` after those. `scripts/install-musl.sh`
+is Droidspaces' script with only its name changed, and both projects install into the
+same `~/toolchains`: change it in Droidspaces first, then copy it here.
 
 Run `make test` after any change to `src/`, and for a change to the security checks
 also `make debug-hardened` then `make test BIN=output/android-bridge-hardened`.
@@ -127,12 +128,16 @@ EOF
 
 ## Documentation
 
-- `README.md` is the only page: what this is, who can connect, install, use, logs and
-  build, in that order. Technical depth stays out of it. If it ever needs a
-  reference page, that page is `Documentation/Internals.md` and the README links to it.
+- `README.md` follows the Droidspaces and USB-Arsenal READMEs: badges, what it is, What
+  you get, Requirements, Get started, Security, Documentation, License. It stays under 100
+  lines, and technical depth stays out of it.
+- The user pages live in `docs/`: `installation.md`, `usage.md`, `how-it-works.md` and
+  `troubleshooting.md`. A new page gets a row in the README's Documentation table.
 - Every fact is stated once. If you find yourself restating something, link instead.
-- No tables. Headings are plain phrases, no numbered sections, no Overview or Summary.
-  Dates are absolute: 2026-10-31, not "today".
+- The README's Documentation table is the only table. Headings are plain phrases, no
+  numbered sections, no Overview or Summary. Dates are absolute: 2026-10-31, not "today".
+- What was tested goes in `docs/how-it-works.md`, nowhere else. A new client error
+  message gets an entry in `docs/troubleshooting.md` in the same commit.
 - "Tested" means it ran and the result was checked, and the sentence says where: on
   Linux, or on a named phone with its Android version and root manager. A change that
   gets tested on a phone later removes every "not yet tested on a phone" in the same
@@ -164,7 +169,7 @@ These rules apply to code, comments, commit messages and documentation.
   and no sentence that starts with "this allows", "this enables" or "this ensures".
 - No hedging and no padding. "Should work" and "might" only when the sentence says what
   was not checked. No paragraph that announces or restates the page. No emoji. Bold only
-  opens a bullet in a list of findings.
+  opens a bullet, or names a symptom in `docs/troubleshooting.md`.
 - Ten lines that work beat a hundred that do the same thing. Delete before you add.
 
 ## Commits
