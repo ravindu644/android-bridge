@@ -12,7 +12,6 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 
 static void usage(FILE *f) {
   fprintf(f,
@@ -94,13 +93,11 @@ int main(int argc, char **argv) {
   /* ENOENT means this is not a container with the bridge mounted. Any other
    * error, EACCES for a non-root user above all, keeps the container path so
    * the connect reports the real reason. */
-  char def[sizeof(((struct sockaddr_un *)0)->sun_path)];
   if (!sock) {
     struct stat st;
-    sock_path(def, sizeof(def), AB_CONTAINER_DIR);
-    if (lstat(def, &st) < 0 && errno == ENOENT)
-      sock_path(def, sizeof(def), AB_HOST_DIR);
-    sock = def;
+    sock = AB_CONTAINER_DIR "/" AB_SOCK_NAME;
+    if (lstat(sock, &st) < 0 && errno == ENOENT)
+      sock = AB_HOST_DIR "/" AB_SOCK_NAME;
   }
   return run_client(sock, pty, argc - optind, argv + optind);
 }

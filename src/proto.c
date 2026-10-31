@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -126,8 +125,4 @@ int write_all(int fd, const void *p, size_t n) {
     n -= (size_t)w;
   }
   return 0;
-}
-
-void sock_path(char *out, size_t size, const char *dir) {
-  snprintf(out, size, "%s/%s", dir, AB_SOCK_NAME);
 }

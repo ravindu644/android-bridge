@@ -61,7 +61,6 @@ void put_be16(unsigned char *p, uint16_t v);
 
 int set_nonblock(int fd);
 int write_all(int fd, const void *p, size_t n);
-void sock_path(char *out, size_t size, const char *dir);
 
 int run_daemon(const char *dir, int foreground);
 int run_client(const char *path, int pty_mode, int argc, char **argv);

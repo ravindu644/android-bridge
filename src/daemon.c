@@ -538,11 +538,11 @@ static int prepare_dir(const char *dir) {
 /* -2 another daemon already answers on this socket */
 static int open_listener(const char *dir) {
   struct sockaddr_un a = {.sun_family = AF_UNIX};
-  if (strlen(dir) + sizeof(AB_SOCK_NAME) + 1 > sizeof(a.sun_path)) {
+  if (snprintf(a.sun_path, sizeof(a.sun_path), "%s/%s", dir, AB_SOCK_NAME) >=
+      (int)sizeof(a.sun_path)) {
     errno = ENAMETOOLONG;
     return -1;
   }
-  sock_path(a.sun_path, sizeof(a.sun_path), dir);
 
   /* A live socket means a daemon is serving, a dead one is left from a
    * crash or the last boot. */
