@@ -1,7 +1,4 @@
 # android-bridge installer, sourced by the Magisk, KernelSU or APatch installer.
-# $MODPATH is where the module is staged now (modules_update/ when installed
-# from the manager), it becomes $MODDIR, /data/adb/modules/android-bridge,
-# after the reboot.
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 

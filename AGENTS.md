@@ -5,13 +5,8 @@ anything. `CLAUDE.md` is a symlink to this file.
 
 ## What this is
 
-android-bridge gives root inside a Droidspaces container a shell on the Android side, the
-same shell `adb shell` gives. On a homelab phone nobody touches, it is how a container
-reboots the phone or runs `pm`, `cmd` and `dumpsys`. It is a separate project from
-Droidspaces. This side creates the socket on the host, a bind mount the reader adds in
-Droidspaces puts it in a container.
-
-One static musl binary is both halves:
+What it is and who it is for is in `README.md`, read it first. One static musl binary
+is both halves:
 
 - `src/daemon.c` is `android-bridge --daemon`, run as root from the module at
   post-fs-data. It listens on `/dev/android-bridge/bridge.sock`, checks that the peer is
@@ -49,24 +44,14 @@ at a trust boundary, or anything the requester asked for by name.
 
 ## Build
 
-```
-make native            # host arch into output/android-bridge, the real build command
-make aarch64           # cross builds: aarch64, x86_64, armhf, x86, riscv64
-make all-build         # every arch
-make module            # every arch, then output/android-bridge-module-v<version>.zip
-make debug-hardened    # ASan, UBSan, LSan, on a glibc host
-make test              # tests/smoke.sh against output/android-bridge, as root
-make bump NEW=x.y.z    # set AB_VERSION in bridge.h
-make format            # clang-format over src/
-```
+The commands are in the README's Build section, and `make native` is the real build
+command. A new `.c` file goes into `SRCS` by hand. A compiler or `CFLAGS` change is not
+tracked, so `make clean` after those. `scripts/install-musl.sh` is Droidspaces' script
+with only its name changed, and both projects install into the same `~/toolchains`:
+change it in Droidspaces first, then copy it here.
 
-Bare `make` only prints help. Toolchains come from `MUSL_CROSS` or `~/toolchains`,
-`scripts/install-musl.sh <arch>` installs one. A new `.c` file goes into `SRCS` by hand.
-A compiler or `CFLAGS` change is not tracked, so `make clean` after those.
-
-`make test` needs root and `/system/bin/sh`, linked to `/bin/sh` on a desktop where that
-is fine. Run it after any change to `src/`, and for a change to the security checks also
-`make debug-hardened` then `make test BIN=output/android-bridge-hardened`.
+Run `make test` after any change to `src/`, and for a change to the security checks
+also `make debug-hardened` then `make test BIN=output/android-bridge-hardened`.
 
 ## The module
 
@@ -97,6 +82,8 @@ Bypassing or loosening one is a bug, not a shortcut.
 
 - `peer_is_real_root()` in `src/daemon.c` wants peer uid 0 and the daemon's own user
   namespace. Anything it cannot read denies. Never add a "cannot tell, so allow" branch.
+  Its one allow without a namespace compare is a kernel without `CONFIG_USER_NS`: no
+  `ns/user` link while `ns/mnt` exists means there is only one user namespace.
 - The directory is 0700 and the socket 0600, both root. `prepare_dir()` and
   `open_listener()` set them, `tests/smoke.sh` checks them.
 - `drop_to_shell()` must fail when root survives the switch to uid 2000 or any
@@ -125,7 +112,7 @@ EOF
 ```
 
 Pipe a script into `adb shell su` as above, `adb shell su -c 'a; b'` runs only `a` as
-root. The installed daemon logs to `/data/adb/android-bridge.log`, in UTC.
+root.
 
 ## Documentation
 
@@ -142,7 +129,7 @@ root. The installed daemon logs to `/data/adb/android-bridge.log`, in UTC.
 - Before committing a doc change, run these and fix anything they print:
 
   ```
-  grep -rnP '\x{2014}' . --include='*.md'
+  grep -rnP '\x{2014}' . --include='*.md' --include='*.[ch]' --include='*.sh' --include=Makefile
   for f in $(find . -name '*.md' -not -path './.git/*'); do
     grep -oP '\]\(\K[^)#:]+(?=[)#])' "$f" | while read -r l; do
       [ -e "$(dirname "$f")/$l" ] || echo "$f: broken link $l"
@@ -154,25 +141,20 @@ root. The installed daemon logs to `/data/adb/android-bridge.log`, in UTC.
 
 These rules apply to code, comments, commit messages and documentation.
 
-**No em-dashes.** Use a comma, a full stop, or rewrite the sentence.
-
-**No ASCII banner comments.** No rows of `-----` or `=====`. The SPDX block at the top
-of each file stays.
-
-**Comments and prose sound like a person.** Say why the code does something, or what
-breaks if it does not. Skip comments that restate the line below them. The comment
-above the `u:r:shell:s0` line in `drop_to_shell()` is the model.
-
-**Plain words.** Not "leverage", "robust", "seamless", "comprehensive", "streamline",
-"ensure", "utilize", "delve", "crucial", "key", "powerful", "simply", "just". Not "it is
-worth noting", "it is important to", "in order to", "note that", "keep in mind", and no
-sentence that starts with "this allows", "this enables" or "this ensures".
-
-**No hedging and no padding.** "Should work" and "might" only when the sentence says what
-was not checked. No paragraph that announces or restates the page. No emoji. Bold only
-opens a bullet in a list of findings.
-
-**Ten lines that work beat a hundred that do the same thing.** Delete before you add.
+- No em-dashes. Use a comma, a full stop, or rewrite the sentence.
+- No ASCII banner comments, no rows of `-----` or `=====`. The SPDX block at the top of
+  each file stays.
+- Comments and prose sound like a person. Say why the code does something, or what
+  breaks if it does not. Skip comments that restate the line below them. The comment
+  above the `u:r:shell:s0` line in `drop_to_shell()` is the model.
+- Plain words. Not "leverage", "robust", "seamless", "comprehensive", "streamline",
+  "ensure", "utilize", "delve", "crucial", "key", "powerful", "simply", "just". Not "it
+  is worth noting", "it is important to", "in order to", "note that", "keep in mind",
+  and no sentence that starts with "this allows", "this enables" or "this ensures".
+- No hedging and no padding. "Should work" and "might" only when the sentence says what
+  was not checked. No paragraph that announces or restates the page. No emoji. Bold only
+  opens a bullet in a list of findings.
+- Ten lines that work beat a hundred that do the same thing. Delete before you add.
 
 ## Commits
 
@@ -191,8 +173,9 @@ opens a bullet in a list of findings.
 ## Hard facts, do not change without a source
 
 - The shell matches adbd's: uid and gid 2000, `u:r:shell:s0`, the groups in
-  `shell_groups[]`, and setuid and setgid left in the bounding set for `run-as`. A change
-  needs the AOSP adbd source that says so, with its commit hash.
+  `shell_groups[]`, setuid and setgid left in the bounding set for `run-as`, and
+  `noatsecure` on the transition, whose source `sepolicy.rule` cites. A change needs the
+  AOSP adbd source that says so, with its commit hash.
 - Module scripts run in the `su` domain on Magisk, APatch and current KernelSU, and in
   `ksu` on older KernelSU, which is why `sepolicy.rule` declares both. Stated by the
   maintainer on 2026-10-31.
