@@ -378,6 +378,18 @@ static int relay(int conn, struct child *c, int pty, int sfd) {
   }
 
   while (!exited) {
+    /* Flush before parsing. A parse that stops for room then always leaves
+     * tochild non-empty, so the poll below waits on the shell's stdin. Flushed
+     * after the parse, tochild could drain to empty with in still full, and
+     * the poll would wait on nothing: a quiet command like cat > file stalled
+     * the session for good. */
+    if (c->in >= 0 && tochild.len && buf_flush(&tochild, c->in) < 0) {
+      /* The shell closed its stdin, or the pty is going away. */
+      tochild.len = 0;
+      if (!pty)
+        close(c->in);
+      c->in = -1;
+    }
     /* Frames already buffered may have been waiting for room in tochild. */
     uint8_t t;
     uint32_t len;
@@ -406,13 +418,6 @@ static int relay(int conn, struct child *c, int pty, int sfd) {
     if (r < 0)
       goto hangup;
 
-    if (c->in >= 0 && tochild.len && buf_flush(&tochild, c->in) < 0) {
-      /* The shell closed its stdin, or the pty is going away. */
-      tochild.len = 0;
-      if (!pty)
-        close(c->in);
-      c->in = -1;
-    }
     /* A pty has no EOF to pass on, ^D is a byte the client sends. */
     if (!pty && stdin_eof && c->in >= 0 && !tochild.len) {
       close(c->in);
