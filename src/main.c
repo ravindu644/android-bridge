@@ -15,6 +15,15 @@
 #include <sys/stat.h>
 
 static void usage(FILE *f) {
+  /* Droidspaces' banner (print_usage), same layout. __DATE__ space-pads
+   * single-digit days ("Nov  3 2026"), so the pad is skipped. */
+  fprintf(f,
+          "\033[1mandroid-bridge v" AB_VERSION
+          " - Android shell bridge for Droidspaces containers\033[0m\n"
+          "by \033[1;36mravindu644\033[0m\n"
+          "\n\033[1;34mhttps://github.com/ravindu644/android-bridge\033[0m\n"
+          "\033[2mBuilt on: %.4s%s %s\033[0m\n\n",
+          __DATE__, __DATE__ + 4 + (__DATE__[4] == ' '), __TIME__);
   fprintf(f,
           "Usage: android-bridge [-t|-T] [-s SOCKET] [COMMAND...]\n"
           "       android-bridge push LOCAL REMOTE\n"
