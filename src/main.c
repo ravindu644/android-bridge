@@ -11,11 +11,14 @@
 #include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 
 static void usage(FILE *f) {
   fprintf(f,
           "Usage: android-bridge [-t|-T] [-s SOCKET] [COMMAND...]\n"
+          "       android-bridge push LOCAL REMOTE\n"
+          "       android-bridge pull REMOTE [LOCAL]\n"
           "       android-bridge --daemon [--foreground] [--dir DIR]\n"
           "\n"
           "Runs COMMAND, or an interactive shell, on the Android side as the\n"
@@ -98,5 +101,11 @@ int main(int argc, char **argv) {
     if (lstat(sock, &st) < 0 && errno == ENOENT)
       sock = AB_HOST_DIR "/" AB_SOCK_NAME;
   }
+  /* adb's names, so push and pull mean the same here as there. A remote
+   * program called push or pull still runs through sh -c push. */
+  if (optind < argc &&
+      (!strcmp(argv[optind], "push") || !strcmp(argv[optind], "pull")))
+    return run_xfer(sock, argv[optind][2] == 'l', argc - optind - 1,
+                    argv + optind + 1);
   return run_client(sock, pty, argc - optind, argv + optind);
 }

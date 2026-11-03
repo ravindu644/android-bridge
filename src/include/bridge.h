@@ -64,5 +64,6 @@ int write_all(int fd, const void *p, size_t n);
 
 int run_daemon(const char *dir, int foreground);
 int run_client(const char *path, int pty_mode, int argc, char **argv);
+int run_xfer(const char *path, int pull, int argc, char **argv);
 
 #endif

@@ -27,6 +27,31 @@ and this runs `grep` in the container:
 android-bridge logcat -d | grep -i battery
 ```
 
+## Copying files
+
+`push` and `pull` copy one file each way, with adb's names and order:
+
+```
+android-bridge push backup.tar /sdcard/            # into a folder, keeps the name
+android-bridge pull /sdcard/DCIM/Camera/a.jpg      # into the current folder
+android-bridge pull /data/local/tmp/log.txt out.txt
+```
+
+On a terminal they draw a progress bar with the speed and the time left, and they end
+with one line such as `backup.tar: 200.0 MiB in 2.3s, 88.5 MiB/s`. The files are read and
+written as the shell user, so the folders `adb push` can use work here too, such as
+`/sdcard` and `/data/local/tmp`. A pulled file is written as root in the container.
+
+A failed pull leaves an existing local file as it was. The phone's own message comes
+first, such as `sh: can't open /sdcard/x: No such file or directory`, and the exit code
+is 1. For a whole folder, use tar through the shell:
+
+```
+android-bridge 'tar -cf - -C /sdcard DCIM' | tar -xf -
+```
+
+A program on the phone called `push` or `pull` runs as `android-bridge sh -c pull`.
+
 ## Options
 
 - **`-t`** always gives the command a terminal, for programs like `top` that want one.

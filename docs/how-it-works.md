@@ -39,6 +39,21 @@ rights AOSP gives adbd.
 
 ## What was tested
 
+On Linux on 2026-11-03: the smoke test, with push and pull of 8 MB, a remote name with a
+quote and a space, and pulls of a missing and an unreadable file, which left the local
+file alone. Six pushes and six `cat > file` runs of 300 MB finished, where the daemon
+before 2026-11-03 stalled on the first.
+
+On a Galaxy A16 (SM-A166P) with Android 14 and KernelSU (ksud 3.3.0) on 2026-11-03:
+push and pull of 100 and 200 MiB at 47 to 90 MiB/s with matching checksums, the progress
+bar on a terminal from `adb shell -tt`, a pull of `/proc/version`, and pulls of a missing
+file and of `/data/system/packages.xml`, which the shell user can stat but not read. Each
+failed pull left the local file alone. During a push and a pull, `sh` and `cat` on the
+phone ran as uid 2000 in `u:r:shell:s0` with every capability set empty. The pushed file
+was `shell:shell` and `shell_data_file`. Pushes into `/data/adb` and `/data/system` and
+pulls from `/data/adb` and an app's data were refused, with the same errors the shell
+user gets on its own.
+
 On Linux on 2026-10-31: the smoke test, a simulated container with its own mount and PID
 namespaces, AddressSanitizer runs with malformed and random frames, and the installer
 against a mock of the manager's install functions.

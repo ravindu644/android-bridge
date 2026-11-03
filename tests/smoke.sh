@@ -5,7 +5,9 @@
 
 BIN=$(realpath "${1:-output/android-bridge}")
 [ "$(id -u)" = 0 ] || { echo "smoke: needs root"; exit 1; }
-[ -x /system/bin/sh ] || { echo "smoke: needs /system/bin/sh (ln -s /bin/sh /system/bin/sh)"; exit 1; }
+for b in sh cat stat; do
+    [ -x /system/bin/$b ] || { echo "smoke: needs /system/bin/$b (ln -s /bin/$b /system/bin/$b)"; exit 1; }
+done
 
 T=$(mktemp -d)
 DIR=$T/run
@@ -39,6 +41,26 @@ check "no pty by default" "$(c tty </dev/null)" "not a tty"
 
 head -c 8000000 /dev/urandom > "$T/big"
 check "8 MB both ways without a deadlock" "$(c cat <"$T/big" | md5sum)" "$(md5sum <"$T/big")"
+
+# push and pull run on the phone's own cat and stat, with no PATH of ours.
+mkdir "$T/xfer"; chown 2000:2000 "$T/xfer"; chmod 711 "$T"
+"$BIN" -s "$SOCK" push "$T/big" "$T/xfer/" 2>/dev/null
+check "push into a directory keeps the name" "$(md5sum <"$T/xfer/big")" "$(md5sum <"$T/big")"
+check "a pushed file belongs to the shell user" "$(stat -c %u:%g "$T/xfer/big")" "2000:2000"
+# $T is root's, 0711: the shell user may pass through it but not create in it.
+"$BIN" -s "$SOCK" push "$T/big" "$T/made" 2>/dev/null
+check "push cannot write where the shell user cannot" "$? $([ -e "$T/made" ] && echo made || echo none)" "1 none"
+"$BIN" -s "$SOCK" pull "$T/xfer/big" "$T/back" 2>/dev/null
+check "pull to a named file" "$(md5sum <"$T/back")" "$(md5sum <"$T/big")"
+"$BIN" -s "$SOCK" push "$T/big" "$T/xfer/it's a file" 2>/dev/null
+check "a quote and a space in the remote name" "$(md5sum <"$T/xfer/it's a file")" "$(md5sum <"$T/big")"
+echo keep >"$T/keep"
+"$BIN" -s "$SOCK" pull "$T/xfer/nope" "$T/keep" 2>/dev/null
+check "a pull of a missing file leaves the local file alone" "$? $(cat "$T/keep")" "1 keep"
+echo secret >"$T/xfer/root-only"; chmod 600 "$T/xfer/root-only"
+"$BIN" -s "$SOCK" pull "$T/xfer/root-only" "$T/keep" 2>/dev/null
+check "a pull of an unreadable file leaves the local file alone" "$? $(cat "$T/keep")" "1 keep"
+chmod 700 "$T"
 
 "$BIN" -s "$SOCK" "$P" sleep 271828 & CPID=$!
 until_ 'pgrep -f "^sleep 2718" >/dev/null'

@@ -16,6 +16,8 @@ reboots the container.
 - **adb shell, from inside the container.** `android-bridge` opens an interactive shell
   on the phone, `android-bridge reboot` runs one command. Pipes, terminals and exit codes
   pass through.
+- **Files both ways.** `android-bridge push` and `pull` copy a file with a progress bar,
+  like `adb push` and `adb pull`.
 - **Root when you allow it.** The shell is never root. Run `su` in it, and your root
   manager decides, the same as over ADB.
 - **Only root gets in.** A normal user in the container is refused, and so is root inside

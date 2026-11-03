@@ -69,6 +69,25 @@ again.
 Connecting failed for a reason the client has no advice for, such as a socket path that
 is not a socket. Check the bind mount as above, then the log.
 
+**`android-bridge: unexpected reply from stat on the phone`**
+`pull` reads the file's size from the phone's `stat` before the file, and that line was
+not a number. Pull the file with `android-bridge cat /path > file` instead, and open an
+issue with the phone and Android version.
+
+**`android-bridge: backup.tar: No such file or directory`**, or another error after a
+local file name
+`push` could not read the local file, or `pull` could not write the local one. The
+message after the name is the reason, such as a missing folder or a full disk. The phone
+was not changed by a failed local read, and a failed write can leave a partial file.
+
+**`android-bridge: photos: is a directory`**
+`push` copies one file. For a folder, pack it with tar as in
+[copying files](usage.md#copying-files).
+
+**`Usage: android-bridge push LOCAL REMOTE`**
+`push` takes two names, and `pull` one or two. See
+[copying files](usage.md#copying-files).
+
 **`android-bridge: command too long`**
 The command line is longer than about 64 KB. Put the command in a script on the phone
 and run that.

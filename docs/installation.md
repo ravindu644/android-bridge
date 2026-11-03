@@ -92,7 +92,8 @@ make format          # clang-format over src/
 ```
 
 `make test` runs a real bridge on a temporary directory. It needs root and
-`/system/bin/sh`, so link that to `/bin/sh` on a machine where that is fine.
+`/system/bin/sh`, `cat` and `stat`, so link those to `/bin/sh`, `/bin/cat` and
+`/bin/stat` on a machine where that is fine.
 `make test BIN=output/android-bridge-hardened` runs it under the sanitizers.
 
 ## Uninstall
